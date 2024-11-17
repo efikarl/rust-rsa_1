@@ -191,20 +191,29 @@ impl Rsa {
     }
 
     fn gcd(a: &BigUint, b: &BigUint) -> BigUint {
-        let max;
-        let min;
-        if a > b {
-            max = a;
-            min = b;
-        } else {
-            max = b;
-            min = a;
+        let mut a = a.clone();
+        let mut b = b.clone();
+    
+        if a.is_zero() {
+            return b;
         }
-        if min.is_zero() {
-            return max.clone();
+        if b.is_zero() {
+            return a;
         }
-
-        Self::gcd(min, &(max % min))
+    
+        let shift = a.trailing_zeros().min(b.trailing_zeros());
+        a >>= shift.unwrap_or_default();
+        b >>= shift.unwrap_or_default();
+    
+        while !b.is_zero() {
+            b >>= b.trailing_zeros().unwrap_or_default();
+            if a > b {
+                std::mem::swap(&mut a, &mut b);
+            }
+            b -= &a;
+        }
+    
+        a << shift.unwrap_or_default()
     }
 
     fn gcd_ex(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
@@ -222,11 +231,16 @@ impl Rsa {
         let mut t = BigInt::one();
 
         while !r.is_zero() {
-            // q, r = divmod(d, r)
-            let p = r.clone(); q = &d / &r; r = &d % &r; d = p;
-            // gcd(a, b) = ax + by
-            let p = u; u = s.clone(); s = p - &q * &s;
-            let p = v; v = t.clone(); t = p - &q * &t;
+            q         = &d / &r;
+            let new_r = &d % &r;
+            std::mem::swap(&mut d, &mut r);
+            r = new_r;
+            let new_s = &u - &q * &s;
+            std::mem::swap(&mut u, &mut s);
+            s = new_s;
+            let new_t = &v - &q * &t;
+            std::mem::swap(&mut v, &mut t);
+            t = new_t;
         }
 
         if a > b {
